@@ -1,0 +1,52 @@
+{
+    "name": "node-etl-stream",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "module": "ES2022",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "lint": "xo",
+        "cli": "tsx src/cli",
+        "serve": "nodemon src/server/index.ts",
+        "codegen": "graphql-codegen --config codegen.ts"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@graphql-codegen/cli": "3.3.1",
+        "@graphql-codegen/client-preset": "^3.0.1",
+        "@graphql-codegen/typescript": "3.0.4",
+        "@graphql-codegen/typescript-resolvers": "3.2.1",
+        "@types/lodash": "^4.14.194",
+        "@types/node": "^18.15.13",
+        "@types/pg": "^8.6.6",
+        "@types/uuid": "^9.0.1",
+        "commander": "^10.0.1",
+        "nodemon": "^2.0.22",
+        "tsx": "^3.12.6",
+        "typescript": "^5.0.4"
+    },
+    "dependencies": {
+        "@apollo/client": "^3.7.12",
+        "@apollo/server": "^4.7.0",
+        "@aws-sdk/client-dynamodb": "^3.316.0",
+        "@aws-sdk/util-dynamodb": "^3.316.0",
+        "dotenv": "^16.0.3",
+        "graphql": "^16.6.0",
+        "lodash": "^4.17.21",
+        "pg": "^8.10.0",
+        "pg-query-stream": "^4.4.0",
+        "uuid": "^9.0.0"
+    },
+    "nodemonConfig": {
+        "ignore": [
+            "data/**/*"
+        ],
+        "execMap": {
+            "ts": "tsx"
+        }
+    }
+}
