@@ -1,8 +1,14 @@
 import { argv } from "node:process";
+import groupBy from "lodash/groupBy";
+import mean from "lodash/mean";
+import sum from "lodash/sum";
+import { performance } from "node:perf_hooks";
 import { program } from "commander";
 import { config } from "dotenv";
 import { migrateData } from "./migration-process";
 import { createMovieActorsTable, dumpMovieActorsTable } from "./movie-actors-table";
+import { AsyncPerfCounter } from "../util/performance";
+import { EntityStore } from "@apollo/client/cache";
 
 performance.mark("process_start");
 
@@ -14,6 +20,25 @@ program
     .description("Basic cli test. Writes <text> to stdout")
     .action((text) => {
         console.log(text);
+    });
+
+class PerfTestClass {
+    @AsyncPerfCounter()
+    public async process(): Promise<void> {
+        return new Promise((resolve) => {
+            setTimeout(resolve, 100);
+        });
+    }
+}
+
+program
+    .command("test-async-perf")
+    .description("Test for AsyncPerfCounter")
+    .action(async () => {
+        const test = new PerfTestClass();
+        await test.process();
+        await test.process();
+        await test.process();
     });
 
 program
@@ -35,9 +60,32 @@ await program.parseAsync(argv);
 
 performance.mark("process_end");
 performance.measure("process_time", "process_start", "process_end");
-performance.getEntriesByName("process_time").forEach(measureItem => {
-    console.log(`${measureItem.name}: ${measureItem.duration}`);
+type Measure = {
+    name: string;
+    total: number;
+    min: number;
+    max: number;
+    avg: number;
+    entries: PerformanceEntry[];
+};
+const measures = performance
+    .getEntriesByType("measure");
+const groupedMeasures = groupBy(measures, "name");
+const metrics = Object.keys(groupedMeasures).map(key => {
+    const entries = groupedMeasures[key];
+    const durations = entries.map(e => e.duration);
+    return <Measure>{
+        name: key,
+        total: sum(durations),
+        min: Math.min(...durations),
+        max: Math.max(...durations),
+        avg: mean(durations),
+        entries,
+    };
 });
+for (const metric of metrics.sort((a, b) => a.total - b.total)) {
+    console.log(`METRIC: ${metric.name}: total=${metric.total} avg=${metric.avg} min=${metric.min} max=${metric.max}`);
+}
 
 /**
  * total records: 5463

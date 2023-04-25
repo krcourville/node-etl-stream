@@ -8,6 +8,7 @@ import { ActorApiClient } from "../services/actor-api-client";
 import { ProgressReporterTransform } from "./progress-reporter-transform";
 import QueryStream from "pg-query-stream";
 import { tableName } from "./movie-actors-table";
+import { AsyncPerfCounter } from "../util/performance";
 
 
 const ddbClient = new DynamoDBClient({
@@ -17,7 +18,7 @@ const ddbClient = new DynamoDBClient({
 export async function migrateData() {
     await pipeline(
         await getFilmActorsStream(),
-        new ProgressReporterTransform({ increment: 100 }),
+        new ProgressReporterTransform({ increment: 500 }),
         new AugmentActorNameTransform({
             batchSize: 25,
             actorApiClient: new ActorApiClient()
@@ -87,6 +88,7 @@ class AugmentActorNameTransform extends Transform {
         callback();
     }
 
+    @AsyncPerfCounter()
     private async processBuffer(): Promise<void> {
         const queries = this.buffer
             .map(async actorMovie => {
@@ -164,6 +166,7 @@ class DynamoDbWriteStream extends Writable {
         done();
     }
 
+    @AsyncPerfCounter()
     private async sendBatch(): Promise<void> {
         const request = new BatchWriteItemCommand({
             RequestItems: {
@@ -174,7 +177,6 @@ class DynamoDbWriteStream extends Writable {
                 }))
             }
         });
-        this.writeCount += this.buffer.length;
         this.buffer.length = 0;
         await this.config.ddbClient.send(request);
     }
