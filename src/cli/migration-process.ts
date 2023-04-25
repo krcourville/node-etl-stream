@@ -10,6 +10,33 @@ import QueryStream from "pg-query-stream";
 import { tableName } from "./movie-actors-table";
 import { AsyncPerfCounter } from "../util/performance";
 
+/**
+ * total records: 5463
+ *
+ * Process time without GQL batching:
+ * 45,547ms
+ *
+ * Apollo Batch Link Batching made no difference
+ *
+ * With batching api requests X 10
+ * 4,974ms
+ *
+ * With batching api requests X 25
+ * 4,707ms
+ *
+ * With dynamod writes:
+ * 67,389ms
+ *
+ * With a batch size of "1" all around:
+ * 88,208ms
+ *
+ * with AugmentActorNameTransform.batch = 10 && DynamoDbWriteStream.batch = 25
+ * 71,163ms
+ *
+ * with AugmentActorNameTransform.batch = 25 && DynamoDbWriteStream.batch = 25
+ * 70,693ms
+ */
+
 
 const ddbClient = new DynamoDBClient({
     endpoint: "http://localhost:8000"
@@ -25,6 +52,7 @@ export async function migrateData() {
         }),
         new MapPropertiesTransform(),
         new DynamoDbWriteStream({
+            batchSize: 25,
             tablename: tableName,
             ddbClient,
         })
@@ -140,20 +168,24 @@ class MapPropertiesTransform extends Transform {
  * https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteItem.html
  */
 class DynamoDbWriteStream extends Writable {
-    private maxBufferSize = 25;
+    private maxBatchSize = 25;
     private buffer: Record<string, any>[] = []
 
-    constructor(private config: { tablename: string, ddbClient: DynamoDBClient }) {
+    constructor(private config: { tablename: string, ddbClient: DynamoDBClient, batchSize: number }) {
         super({
             objectMode: true
         });
+        if (this.config.batchSize < 1 || this.config.batchSize > this.maxBatchSize) {
+            console.warn(`batchSize is not in the range of [1-${this.maxBatchSize}]. batchsize will be set to ${this.maxBatchSize}`);
+            this.config.batchSize = this.maxBatchSize;
+        }
     }
 
 
     async _write(chunk: any, _encoding: BufferEncoding, done: (error?: Error | null | undefined) => void): Promise<void> {
         this.buffer.push(chunk);
 
-        if (this.buffer.length >= this.maxBufferSize) {
+        if (this.buffer.length >= this.config.batchSize) {
             await this.sendBatch();
         }
         done();
@@ -168,6 +200,9 @@ class DynamoDbWriteStream extends Writable {
 
     @AsyncPerfCounter()
     private async sendBatch(): Promise<void> {
+        if (this.buffer.length === 0) {
+            return;
+        }
         const request = new BatchWriteItemCommand({
             RequestItems: {
                 [this.config.tablename]: this.buffer.map(item => ({

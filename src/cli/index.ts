@@ -8,7 +8,6 @@ import { config } from "dotenv";
 import { migrateData } from "./migration-process";
 import { createMovieActorsTable, dumpMovieActorsTable } from "./movie-actors-table";
 import { AsyncPerfCounter } from "../util/performance";
-import { EntityStore } from "@apollo/client/cache";
 
 performance.mark("process_start");
 
@@ -86,21 +85,3 @@ const metrics = Object.keys(groupedMeasures).map(key => {
 for (const metric of metrics.sort((a, b) => a.total - b.total)) {
     console.log(`METRIC: ${metric.name}: total=${metric.total} avg=${metric.avg} min=${metric.min} max=${metric.max}`);
 }
-
-/**
- * total records: 5463
- *
- * Process time without GQL batching:
- * 45,547.17499998212
- *
- * Apollo Batch Link Batching made no difference
- *
- * With batching api requests X 10
- * 4,974.97524997592
- *
- * With batching api requests X 25
- * 4,707.205332994461
- *
- * With dynamod writes:
- * 67,389.74212497473
- */
